@@ -40,7 +40,7 @@ app.use('/output', express.static(outputDir));
 const conversionRouter = promiseRouter();
 app.use(conversionRouter);
 
-// Queue requests to ensure that only one is processed at a time, preventing multiple concurrent Docker containers from exhausting system resources
+// single requests queue to prevent multiple concurrent Docker containers from exhausting system resources
 conversionRouter.use(queue({ activeLimit: 1, queuedLimit: -1 }));
 
 conversionRouter.post('/convert', async (req, res) => {
