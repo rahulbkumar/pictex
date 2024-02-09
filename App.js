@@ -6,18 +6,13 @@ const promiseRouter = require('express-promise-router');
 const queue = require('express-queue');
 const sharp = require('sharp');
 const Promise = require('bluebird');
-
 const port = 3001;
-
 const staticDir = 'static';
 const tempDir = 'temp';
 const outputDir = 'output';
 const httpOutputDir = 'output';
-
-// Checklist of valid formats from the frontend, to verify form values are correct
 const validFormats = ['SVG', 'PNG', 'JPG'];
 
-// Maps scales received from the frontend into values appropriate for LaTeX
 const scaleMap = {
   '10%': '0.1',
   '25%': '0.25',
@@ -31,27 +26,23 @@ const scaleMap = {
   '1000%': '10.0'
 };
 
-// Unsupported commands we will error on
 const unsupportedCommands = ['\\usepackage', '\\input', '\\include', '\\write18', '\\immediate', '\\verbatiminput'];
-
 const app = express();
 
 const bodyParser = require('body-parser');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Allow static html files and output files to be accessible
+// html file
 app.use('/', express.static(staticDir));
 app.use('/output', express.static(outputDir));
 
 const conversionRouter = promiseRouter();
 app.use(conversionRouter);
 
-// Queue requests to ensure that only one is processed at a time, preventing
-// multiple concurrent Docker containers from exhausting system resources
+// Queue requests to ensure that only one is processed at a time, preventing multiple concurrent Docker containers from exhausting system resources
 conversionRouter.use(queue({ activeLimit: 1, queuedLimit: -1 }));
 
-// Conversion request endpoint
 conversionRouter.post('/convert', async (req, res) => {
   const id = generateID(); // Generate a unique ID for this request
 
@@ -91,16 +82,16 @@ conversionRouter.post('/convert', async (req, res) => {
     const inputSvgFileName = `${tempDir}/${id}/equation.svg`;
     const outputFileName = `${outputDir}/img-${id}.${fileFormat}`;
 
-    // Return the SVG image, no further processing required
+    // SVG image
     if (fileFormat === 'svg') {
       await fsPromises.copyFile(inputSvgFileName, outputFileName);
 
-    // Convert to PNG
+    // PNG
     } else if (fileFormat === 'png') {
       await sharp(inputSvgFileName, { density: 96 })
         .toFile(outputFileName); // Sharp's PNG type is implicitly determined via the output file extension
 
-    // Convert to JPG
+    // JPG
     } else {
       await sharp(inputSvgFileName, { density: 96 })
         .flatten({ background: { r: 255, g: 255, b: 255 } }) // as JPG is not transparent, use a white background
@@ -111,7 +102,7 @@ conversionRouter.post('/convert', async (req, res) => {
     await cleanupTempFilesAsync(id);
     res.end(JSON.stringify({ imageURL: `${httpOutputDir}/img-${id}.${fileFormat}` }));
 
-  // An exception occurred somewhere, return an error
+  // return an error
   } catch (e) {
     console.error(e);
     await cleanupTempFilesAsync(id);
@@ -175,8 +166,6 @@ function getDockerCommand(id, output_scale) {
 function cleanupTempFilesAsync(id) {
   return fsPromises.rmdir(`${tempDir}/${id}`, { recursive: true });
 }
-
-// Execute a shell command
 function execAsync(cmd, opts = {}) {
   return new Promise((resolve, reject) => {
     shell.exec(cmd, opts, (code, stdout, stderr) => {
